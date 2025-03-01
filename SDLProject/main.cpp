@@ -26,13 +26,13 @@
 
 enum AppStatus { RUNNING, TERMINATED };
 
-constexpr int WINDOW_WIDTH  = 640 * 1.75,
-              WINDOW_HEIGHT = 480 * 1.75;
+constexpr int WINDOW_WIDTH  = 1092,
+              WINDOW_HEIGHT = 516;
 
 
-constexpr float BG_RED     = 0.1922f,
-                BG_BLUE    = 0.549f,
-                BG_GREEN   = 0.9059f,
+constexpr float BG_RED     = 0.9765625f,
+                BG_GREEN   = 0.97265625f,
+                BG_BLUE    = 0.9609375f,
                 BG_OPACITY = 1.0f;
 
 constexpr int VIEWPORT_X      = 0,
@@ -40,8 +40,8 @@ constexpr int VIEWPORT_X      = 0,
               VIEWPORT_WIDTH  = WINDOW_WIDTH,
               VIEWPORT_HEIGHT = WINDOW_HEIGHT;
 
-constexpr char V_SHADER_PATH[] = "shaders/vertex.glsl",
-               F_SHADER_PATH[] = "shaders/fragment.glsl";
+constexpr char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
+           F_SHADER_PATH[] = "shaders/fragment_textured.glsl";
 
 constexpr GLint NUMBER_OF_TEXTURES = 1;
 constexpr GLint LEVEL_OF_DETAIL    = 0;
@@ -53,26 +53,30 @@ const char ART_SPRITE_FILEPATH[] = "art.png";   // racket  1
 constexpr char PAT_SPRITE_FILEPATH[] = "pat.png";   // racket 2
 constexpr char BALL_SPRITE_FILEPATH[] = "ball.png";
 constexpr char BACKGROUND_FILEPATH[] = "background.png";
+constexpr char WIN_FILEPATH[] = "win.png";
 
 constexpr glm::vec3 INIT_POS_ART = glm::vec3(4.2f, 0.0f, 0.0f);
 constexpr glm::vec3 INIT_POS_PAT = glm::vec3(-4.2f, 0.0f, 0.0f);
-constexpr glm::vec3 INIT_SCALE_RACKET = glm::vec3(0.5f, 1.5f, 0.0f);
-constexpr glm::vec3 INIT_SCALE_BACK = glm::vec3(0.5f, 0.5f, 0.0f);
+constexpr glm::vec3 INIT_SCALE_RACKET = glm::vec3(1.5f, 1.5f, 0.0f);
+constexpr glm::vec3 INIT_SCALE_BACK = glm::vec3(10.0f, 5.0f, 0.0f);
 constexpr glm::vec3 INIT_POS_BALL = glm::vec3(0.0f, 0.0f, 0.0f);
-constexpr glm::vec3 INIT_SCALE_BALL = glm::vec3(0.415f, 0.49f, 0.0f);
+constexpr glm::vec3 INIT_SCALE_BALL = glm::vec3(0.60f, 0.60f, 0.0f);
+constexpr glm::vec3 INIT_POS_WIN = glm::vec3(0.0f,0.0f,0.0f);
+constexpr glm::vec3 INIT_SCALE_WIN = glm::vec3(6.52f, 1.48f, 0.0f);
 
 
-constexpr float ROT_INCREMENT = 1.0f;
+//constexpr float ROT_INCREMENT = 1.0f;
 
 AppStatus g_app_status = RUNNING;
 SDL_Window* g_display_window;
 ShaderProgram g_shader_program;
 
-glm::mat4 g_view_matrix, g_model_matrix, g_projection_matrix, g_background_matrix, g_art_matrix, g_pat_matrix, g_ball_matrix;  //ADD TO THIS WHEN YOU ADD A NEW SHAPE
+glm::mat4 g_view_matrix, g_model_matrix, g_projection_matrix, g_background_matrix, g_art_matrix, g_pat_matrix, g_ball_matrix, g_win_matrix;  //ADD TO THIS WHEN YOU ADD A NEW SHAPE
 
 
 float g_previous_ticks = 0.0f;
 bool is_playing = false;
+bool did_win = false;
 
 glm::vec3 g_translation_ball = glm::vec3(0.0f,0.0f,0.0f);
 glm::vec3 g_art_movement = glm::vec3(0.0f,0.0f,0.0f);
@@ -82,6 +86,7 @@ glm::vec3 g_pat_position = glm::vec3(0.0f,0.0f,0.0f);
 glm::vec3 g_ball_position = glm::vec3(0.0f,0.0f,0.0f);
 glm::vec3 g_ball_velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 g_ball_init_velocity = glm::vec3(-2.0f, 1.5f, 0.0f);
+glm::vec3 g_win_position = glm::vec3(0.0f,0.0f,0.0f);
 
 
 
@@ -91,6 +96,7 @@ GLuint g_background_texture_id;
 GLuint g_art_texture_id;
 GLuint g_pat_texture_id;
 GLuint g_ball_texture_id;
+GLuint g_win_texture_id;
 
 
 
@@ -106,7 +112,7 @@ GLuint load_texture(const char* filepath)
 {
     // STEP 1: Loading the image file
     int width, height, number_of_components;
-    stbi_set_flip_vertically_on_load(true);
+    //stbi_set_flip_vertically_on_load(true);
     
 
     unsigned char* image = stbi_load(filepath, &width, &height, &number_of_components, STBI_rgb_alpha);
@@ -156,7 +162,7 @@ void initialise()
     g_shader_program.load(V_SHADER_PATH, F_SHADER_PATH);
     
     g_view_matrix       = glm::mat4(1.0f);
-    g_projection_matrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
+    g_projection_matrix = glm::ortho(-5.0f, 5.0f, -2.36f, 2.36f, -1.0f, 1.0f);
 
     
     g_shader_program.set_projection_matrix(g_projection_matrix);
@@ -171,6 +177,7 @@ void initialise()
     g_art_texture_id = load_texture(ART_SPRITE_FILEPATH);
     g_pat_texture_id = load_texture(PAT_SPRITE_FILEPATH);
     g_ball_texture_id = load_texture(BALL_SPRITE_FILEPATH);
+    g_win_texture_id = load_texture(WIN_FILEPATH);
     
     
     glEnable(GL_BLEND);
@@ -222,7 +229,9 @@ void process_input()
                     case SDLK_SPACE:
                         if (!is_playing) {
                             g_ball_velocity = g_ball_init_velocity;
+                            g_win_position = INIT_POS_WIN;
                             is_playing = true;
+                            did_win = false;
                         }
                         break;
 
@@ -246,7 +255,7 @@ void update()
     g_ball_position += g_ball_velocity * delta_time;
 
     // bound by top and bottom
-    if (g_ball_position.y >= 3.75f - INIT_SCALE_BALL.y || g_ball_position.y <= -3.75f + INIT_SCALE_BALL.y) {
+    if (g_ball_position.y >= 2.36f - INIT_SCALE_BALL.y || g_ball_position.y <= -2.36f + INIT_SCALE_BALL.y) {
         g_ball_velocity.y = -g_ball_velocity.y;
     }
     
@@ -267,7 +276,7 @@ void update()
         g_ball_position = glm::vec3(0.0f, 0.0f, 0.0f); // Reset ball
         g_ball_velocity = glm::vec3(0.0f, 0.0f, 0.0f); // Reset velocity
         is_playing = false;
-        LOG("SOMEONE WON WOOP WOOOOO");
+        did_win = true;
     }
     
     
@@ -292,6 +301,10 @@ void update()
 
     g_background_matrix = glm::mat4(1.0f);
     g_background_matrix = glm::scale(g_background_matrix, INIT_SCALE_BACK);
+    
+    g_win_matrix = glm::mat4(1.0f);
+    g_win_matrix = glm::translate(g_win_matrix, INIT_POS_WIN);
+    g_win_matrix = glm::scale(g_win_matrix, INIT_SCALE_WIN);
     
 
     
@@ -337,11 +350,17 @@ void render()
     
     glUseProgram(g_shader_program.get_program_id());
 
-    //draw_object(g_background_matrix, g_background_texture_id);
+    draw_object(g_background_matrix, g_background_texture_id);
     
     draw_object(g_art_matrix, g_art_texture_id);
     draw_object(g_pat_matrix, g_pat_texture_id);
     draw_object(g_ball_matrix, g_ball_texture_id);
+    
+    if (did_win == true)
+    {
+        draw_object(g_win_matrix, g_win_texture_id);
+    }
+
 
     
     SDL_GL_SwapWindow(g_display_window);

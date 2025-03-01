@@ -32,6 +32,7 @@
 
 /* Begin PBXFileReference section */
 		C2B1F10D2D724A0F00786B2A /* background.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = background.png; sourceTree = "<group>"; };
+		C2B1F1122D73867A00786B2A /* win.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = win.png; sourceTree = "<group>"; };
 		C2BAC6682D6F657400FD58AB /* art.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = art.png; sourceTree = "<group>"; };
 		C2BAC6692D6F7A1700FD58AB /* pat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = pat.png; sourceTree = "<group>"; };
 		C2BAC66B2D7001EE00FD58AB /* ball.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ball.png; sourceTree = "<group>"; };
@@ -89,6 +90,7 @@
 				C2BAC6682D6F657400FD58AB /* art.png */,
 				C2BAC6692D6F7A1700FD58AB /* pat.png */,
 				C2BAC66B2D7001EE00FD58AB /* ball.png */,
+				C2B1F1122D73867A00786B2A /* win.png */,
 				DBDF1B5B2323DE8D007CECB1 /* glm */,
 				DBDF1B5D2323DE8D007CECB1 /* ShaderProgram.cpp */,
 				DBDF1B592323DE8D007CECB1 /* ShaderProgram.h */,
