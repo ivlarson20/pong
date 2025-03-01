@@ -72,8 +72,20 @@ glm::mat4 g_view_matrix, g_model_matrix, g_projection_matrix, g_background_matri
 
 
 float g_previous_ticks = 0.0f;
+bool is_playing = false;
 
 glm::vec3 g_translation_ball = glm::vec3(0.0f,0.0f,0.0f);
+glm::vec3 g_art_movement = glm::vec3(0.0f,0.0f,0.0f);
+glm::vec3 g_pat_movement = glm::vec3(0.0f,0.0f,0.0f);
+glm::vec3 g_art_position = glm::vec3(0.0f,0.0f,0.0f);
+glm::vec3 g_pat_position = glm::vec3(0.0f,0.0f,0.0f);
+glm::vec3 g_ball_position = glm::vec3(0.0f,0.0f,0.0f);
+glm::vec3 g_ball_velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_ball_init_velocity = glm::vec3(-2.0f, 1.5f, 0.0f);
+
+
+
+float g_racket_speed = 0.5f;
 
 GLuint g_background_texture_id;
 GLuint g_art_texture_id;
@@ -167,12 +179,57 @@ void initialise()
 
 void process_input()
 {
+    g_art_movement = glm::vec3(0.0f);
+    g_pat_movement = glm::vec3(0.0f);
+    
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
-        if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE)
+        switch (event.type)
         {
-            g_app_status = TERMINATED;
+            case SDL_QUIT:
+            case SDL_WINDOWEVENT_CLOSE:
+                g_app_status = TERMINATED;
+                break;
+            
+            case SDL_KEYDOWN:
+                switch(event.key.keysym.sym){
+                    case SDLK_UP:
+                        // move art up
+                        g_art_movement.y = 1.0f;
+                        break;
+                    
+                    case SDLK_DOWN:
+                        // move art down
+                        g_art_movement.y = -1.0f;
+                        break;
+                        
+                    case SDLK_w:
+                        // move pat up
+                        g_pat_movement.y = 1.0f;
+                        break;
+                        
+                    case SDLK_s:
+                        // move pat down
+                        g_pat_movement.y = -1.0f;
+                        break;
+                        
+                    
+                    case SDLK_q:
+                        g_app_status = TERMINATED;
+                        break;
+                        
+                    case SDLK_SPACE:
+                        if (!is_playing) {
+                            g_ball_velocity = g_ball_init_velocity;
+                            is_playing = true;
+                        }
+                        break;
+
+                        
+                }
+
+        
         }
     }
 }
@@ -184,24 +241,59 @@ void update()
     float delta_time = ticks - g_previous_ticks;
     g_previous_ticks = ticks;
     
+    g_art_position += g_art_movement * g_racket_speed;
+    g_pat_position += g_pat_movement * g_racket_speed;
+    g_ball_position += g_ball_velocity * delta_time;
+
+    // bound by top and bottom
+    if (g_ball_position.y >= 3.75f - INIT_SCALE_BALL.y || g_ball_position.y <= -3.75f + INIT_SCALE_BALL.y) {
+        g_ball_velocity.y = -g_ball_velocity.y;
+    }
+    
+    // collide w the paddle
+    float x_distance_art = fabs(g_art_position.x + INIT_POS_ART.x - INIT_POS_BALL.x - g_ball_position.x)-((INIT_SCALE_BALL.x + INIT_SCALE_RACKET.x) / 2.0f);
+    float x_distance_pat = fabs(g_pat_position.x + INIT_POS_PAT.x - INIT_POS_BALL.x - g_ball_position.x)-((INIT_SCALE_BALL.x + INIT_SCALE_RACKET.x) / 2.0f);
+    float y_distance_art = fabs(g_art_position.y + INIT_POS_ART.y - INIT_POS_BALL.y - g_ball_position.y)-((INIT_SCALE_BALL.y + INIT_SCALE_RACKET.y) / 2.0f);
+    float y_distance_pat = fabs(g_pat_position.y + INIT_POS_PAT.y - INIT_POS_BALL.y - g_ball_position.y)-((INIT_SCALE_BALL.y + INIT_SCALE_RACKET.y) / 2.0f);
+    
+    if ((x_distance_art < 0.0f && y_distance_art < 0.0f) ||(x_distance_pat < 0.0f && y_distance_pat < 0.0f))
+    {
+        g_ball_velocity.x = -g_ball_velocity.x;
+    }
+
+    
+    // someone wins - ADD THE MESSAGE HERE
+    if (g_ball_position.x > 5.0f || g_ball_position.x < -5.0f) {
+        g_ball_position = glm::vec3(0.0f, 0.0f, 0.0f); // Reset ball
+        g_ball_velocity = glm::vec3(0.0f, 0.0f, 0.0f); // Reset velocity
+        is_playing = false;
+        LOG("SOMEONE WON WOOP WOOOOO");
+    }
+    
     
     // transformations
+    //right racket, white if my sprites ever show up
     g_art_matrix = glm::mat4(1.0f);
     g_art_matrix = glm::translate(g_art_matrix, INIT_POS_ART);
+    g_art_matrix = glm::translate(g_art_matrix, g_art_position);
     g_art_matrix = glm::scale(g_art_matrix, INIT_SCALE_RACKET);
+    
+    //left racket, black if my sprites ever show
+    g_pat_matrix = glm::mat4(1.0f);
+    g_pat_matrix = glm::translate(g_pat_matrix, INIT_POS_PAT);
+    g_pat_matrix = glm::translate(g_pat_matrix, g_pat_position);
+    g_pat_matrix = glm::scale(g_pat_matrix, INIT_SCALE_RACKET);
     
     g_ball_matrix = glm::mat4(1.0f);
     g_ball_matrix = glm::translate(g_ball_matrix, INIT_POS_BALL);
+    g_ball_matrix = glm::translate(g_ball_matrix, g_ball_position);
     g_ball_matrix = glm::scale(g_ball_matrix, INIT_SCALE_BALL);
     
 
-   
     g_background_matrix = glm::mat4(1.0f);
     g_background_matrix = glm::scale(g_background_matrix, INIT_SCALE_BACK);
     
-    g_pat_matrix = glm::mat4(1.0f);
-    g_pat_matrix = glm::translate(g_pat_matrix, INIT_POS_PAT);
-    g_pat_matrix = glm::scale(g_pat_matrix, INIT_SCALE_RACKET);
+
     
     
     
