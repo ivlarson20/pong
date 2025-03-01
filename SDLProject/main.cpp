@@ -54,12 +54,16 @@ constexpr char PAT_SPRITE_FILEPATH[] = "pat.png";   // racket 2
 constexpr char BALL_SPRITE_FILEPATH[] = "ball.png";
 constexpr char BACKGROUND_FILEPATH[] = "background.png";
 constexpr char WIN_FILEPATH[] = "win.png";
+constexpr char BALL2_FILEPATH[] = "ball.png";
+constexpr char BALL3_FILEPATH[] = "ball.png";
 
 constexpr glm::vec3 INIT_POS_ART = glm::vec3(4.2f, 0.0f, 0.0f);
 constexpr glm::vec3 INIT_POS_PAT = glm::vec3(-4.2f, 0.0f, 0.0f);
 constexpr glm::vec3 INIT_SCALE_RACKET = glm::vec3(1.5f, 1.5f, 0.0f);
 constexpr glm::vec3 INIT_SCALE_BACK = glm::vec3(10.0f, 5.0f, 0.0f);
 constexpr glm::vec3 INIT_POS_BALL = glm::vec3(0.0f, 0.0f, 0.0f);
+constexpr glm::vec3 INIT_POS_BALL2 = glm::vec3(1.0f, 0.0f, 0.0f);
+constexpr glm::vec3 INIT_POS_BALL3 = glm::vec3(-1.0f, 0.0f, 0.0f);
 constexpr glm::vec3 INIT_SCALE_BALL = glm::vec3(0.60f, 0.60f, 0.0f);
 constexpr glm::vec3 INIT_POS_WIN = glm::vec3(0.0f,0.0f,0.0f);
 constexpr glm::vec3 INIT_SCALE_WIN = glm::vec3(6.52f, 1.48f, 0.0f);
@@ -71,12 +75,20 @@ AppStatus g_app_status = RUNNING;
 SDL_Window* g_display_window;
 ShaderProgram g_shader_program;
 
-glm::mat4 g_view_matrix, g_model_matrix, g_projection_matrix, g_background_matrix, g_art_matrix, g_pat_matrix, g_ball_matrix, g_win_matrix;  //ADD TO THIS WHEN YOU ADD A NEW SHAPE
+glm::mat4 g_view_matrix, g_model_matrix, g_projection_matrix, g_background_matrix, g_art_matrix, g_pat_matrix, g_ball_matrix, g_win_matrix, g_ball2_matrix, g_ball3_matrix;  //ADD TO THIS WHEN YOU ADD A NEW SHAPE
 
 
 float g_previous_ticks = 0.0f;
 bool is_playing = false;
 bool did_win = false;
+bool single_player;
+int num_balls = 1;
+
+bool pat_moving_up = true;
+float pat_speed = 1.2f;  // Adjust for desired speed
+float pat_top_limit = 1.5f;  // Upper limit of movement
+float pat_bottom_limit = -1.5f;  // Lower limit of movement
+
 
 glm::vec3 g_translation_ball = glm::vec3(0.0f,0.0f,0.0f);
 glm::vec3 g_art_movement = glm::vec3(0.0f,0.0f,0.0f);
@@ -86,6 +98,12 @@ glm::vec3 g_pat_position = glm::vec3(0.0f,0.0f,0.0f);
 glm::vec3 g_ball_position = glm::vec3(0.0f,0.0f,0.0f);
 glm::vec3 g_ball_velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 g_ball_init_velocity = glm::vec3(-2.0f, 1.5f, 0.0f);
+glm::vec3 g_ball2_position = glm::vec3(0.0f,0.0f,0.0f);
+glm::vec3 g_ball2_velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_ball2_init_velocity = glm::vec3(2.0f, -1.2f, 0.0f);
+glm::vec3 g_ball3_position = glm::vec3(0.0f,0.0f,0.0f);
+glm::vec3 g_ball3_velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_ball3_init_velocity = glm::vec3(-1.5f, 2.0f, 0.0f);
 glm::vec3 g_win_position = glm::vec3(0.0f,0.0f,0.0f);
 
 
@@ -97,6 +115,8 @@ GLuint g_art_texture_id;
 GLuint g_pat_texture_id;
 GLuint g_ball_texture_id;
 GLuint g_win_texture_id;
+GLuint g_ball2_texture_id;
+GLuint g_ball3_texture_id;
 
 
 
@@ -178,6 +198,9 @@ void initialise()
     g_pat_texture_id = load_texture(PAT_SPRITE_FILEPATH);
     g_ball_texture_id = load_texture(BALL_SPRITE_FILEPATH);
     g_win_texture_id = load_texture(WIN_FILEPATH);
+    g_ball2_texture_id = load_texture(BALL2_FILEPATH);
+    g_ball3_texture_id = load_texture(BALL3_FILEPATH);
+
     
     
     glEnable(GL_BLEND);
@@ -213,25 +236,53 @@ void process_input()
                         
                     case SDLK_w:
                         // move pat up
-                        g_pat_movement.y = 1.0f;
+                        if (!single_player){
+                            g_pat_movement.y = 1.0f;
+                        }
+                        
                         break;
                         
                     case SDLK_s:
                         // move pat down
-                        g_pat_movement.y = -1.0f;
+                        if (!single_player){
+                            g_pat_movement.y = -1.0f;
+                        }
+                        
                         break;
                         
+                    case SDLK_t:
+                        // single player mode
+                        single_player = true;
+                        break;
                     
                     case SDLK_q:
                         g_app_status = TERMINATED;
                         break;
                         
+                    case SDLK_1:
+                        num_balls = 1;
+                        
+                        break;
+                    
+                    case SDLK_2:
+                        num_balls = 2;
+                        
+                        break;
+                        
+                    case SDLK_3:
+                        num_balls = 3;
+                        
+                        break;
+                        
                     case SDLK_SPACE:
                         if (!is_playing) {
                             g_ball_velocity = g_ball_init_velocity;
+                            g_ball2_velocity = g_ball2_init_velocity;
+                            g_ball3_velocity = g_ball3_init_velocity;
                             g_win_position = INIT_POS_WIN;
                             is_playing = true;
                             did_win = false;
+                            
                         }
                         break;
 
@@ -253,17 +304,51 @@ void update()
     g_art_position += g_art_movement * g_racket_speed;
     g_pat_position += g_pat_movement * g_racket_speed;
     g_ball_position += g_ball_velocity * delta_time;
+    g_ball2_position += g_ball2_velocity * delta_time;
+    g_ball3_position += g_ball3_velocity * delta_time;
 
-    // bound by top and bottom
-    if (g_ball_position.y >= 2.36f - INIT_SCALE_BALL.y || g_ball_position.y <= -2.36f + INIT_SCALE_BALL.y) {
+    // ball 1 bound by top and bottom
+    if (g_ball_position.y >= 2.36f - (INIT_SCALE_BALL.y/2.0f) || g_ball_position.y <= -2.36f + (INIT_SCALE_BALL.y /2.0f))
+    {
         g_ball_velocity.y = -g_ball_velocity.y;
+    }
+    // ball 2 bound by top and bottom
+    if (g_ball2_position.y >= 2.36f - (INIT_SCALE_BALL.y/2.0f) || g_ball2_position.y <= -2.36f + (INIT_SCALE_BALL.y /2.0f))
+    {
+        g_ball2_velocity.y = -g_ball2_velocity.y;
+    }
+    // ball 3 bound by top and bottom
+    if (g_ball3_position.y >= 2.36f - (INIT_SCALE_BALL.y/2.0f) || g_ball3_position.y <= -2.36f + (INIT_SCALE_BALL.y /2.0f))
+    {
+        g_ball3_velocity.y = -g_ball3_velocity.y;
+    }
+    // art bound by top
+    if (g_art_position.y >= 2.36f - (INIT_SCALE_RACKET.y/2.0f))
+    {
+        g_art_position.y -= 1.0f;
+    }
+    // art bound by bottom
+    if (g_art_position.y <= -2.36f + (INIT_SCALE_RACKET.y /2.0f))
+    {
+        g_art_position.y += 1;
+    }
+    // pat bound by top
+    if (g_pat_position.y >= 2.36f - (INIT_SCALE_RACKET.y / 2.0f) )
+    {
+        g_pat_position.y -=1;
+    }
+    // pat bound by bottom
+    if (g_pat_position.y <= -2.36f + (INIT_SCALE_RACKET.y /2.0f))
+    {
+        g_pat_position.y +=1;
     }
     
     // collide w the paddle
-    float x_distance_art = fabs(g_art_position.x + INIT_POS_ART.x - INIT_POS_BALL.x - g_ball_position.x)-((INIT_SCALE_BALL.x + INIT_SCALE_RACKET.x) / 2.0f);
-    float x_distance_pat = fabs(g_pat_position.x + INIT_POS_PAT.x - INIT_POS_BALL.x - g_ball_position.x)-((INIT_SCALE_BALL.x + INIT_SCALE_RACKET.x) / 2.0f);
-    float y_distance_art = fabs(g_art_position.y + INIT_POS_ART.y - INIT_POS_BALL.y - g_ball_position.y)-((INIT_SCALE_BALL.y + INIT_SCALE_RACKET.y) / 2.0f);
-    float y_distance_pat = fabs(g_pat_position.y + INIT_POS_PAT.y - INIT_POS_BALL.y - g_ball_position.y)-((INIT_SCALE_BALL.y + INIT_SCALE_RACKET.y) / 2.0f);
+    float x_distance_art = fabs(g_art_position.x + INIT_POS_ART.x - INIT_POS_BALL.x - g_ball_position.x) - ((INIT_SCALE_BALL.x + INIT_SCALE_RACKET.x) * 0.4f);
+    float x_distance_pat = fabs(g_pat_position.x + INIT_POS_PAT.x - INIT_POS_BALL.x - g_ball_position.x) - ((INIT_SCALE_BALL.x + INIT_SCALE_RACKET.x) * 0.4f);
+    float y_distance_art = fabs(g_art_position.y + INIT_POS_ART.y - INIT_POS_BALL.y - g_ball_position.y) - ((INIT_SCALE_BALL.y + INIT_SCALE_RACKET.y) * 0.4f);
+    float y_distance_pat = fabs(g_pat_position.y + INIT_POS_PAT.y - INIT_POS_BALL.y - g_ball_position.y) - ((INIT_SCALE_BALL.y + INIT_SCALE_RACKET.y) * 0.4f);
+
     
     if ((x_distance_art < 0.0f && y_distance_art < 0.0f) ||(x_distance_pat < 0.0f && y_distance_pat < 0.0f))
     {
@@ -277,6 +362,36 @@ void update()
         g_ball_velocity = glm::vec3(0.0f, 0.0f, 0.0f); // Reset velocity
         is_playing = false;
         did_win = true;
+        single_player = false;
+    }
+    
+    // single player
+    if (single_player) {
+        if (pat_moving_up) {
+            g_pat_position.y += pat_speed * delta_time;
+            if (g_pat_position.y >= pat_top_limit) {
+                pat_moving_up = false;  // Switch direction
+            }
+        } else {
+            g_pat_position.y -= pat_speed * delta_time;
+            if (g_pat_position.y <= pat_bottom_limit) {
+                pat_moving_up = true;  // Switch direction
+            }
+        }
+    }
+
+
+
+    
+    // two balls
+    if (num_balls == 2){
+        
+    }
+    
+    
+    // three balls
+    if (num_balls == 3){
+        
     }
     
     
@@ -298,6 +413,15 @@ void update()
     g_ball_matrix = glm::translate(g_ball_matrix, g_ball_position);
     g_ball_matrix = glm::scale(g_ball_matrix, INIT_SCALE_BALL);
     
+    g_ball2_matrix = glm::mat4(1.0f);
+    g_ball2_matrix = glm::translate(g_ball2_matrix, INIT_POS_BALL2);
+    g_ball2_matrix = glm::translate(g_ball2_matrix, g_ball2_position);
+    g_ball2_matrix = glm::scale(g_ball2_matrix, INIT_SCALE_BALL);
+    
+    g_ball3_matrix = glm::mat4(1.0f);
+    g_ball3_matrix = glm::translate(g_ball3_matrix, INIT_POS_BALL3);
+    g_ball3_matrix = glm::translate(g_ball3_matrix, g_ball3_position);
+    g_ball3_matrix = glm::scale(g_ball3_matrix, INIT_SCALE_BALL);
 
     g_background_matrix = glm::mat4(1.0f);
     g_background_matrix = glm::scale(g_background_matrix, INIT_SCALE_BACK);
@@ -359,6 +483,15 @@ void render()
     if (did_win == true)
     {
         draw_object(g_win_matrix, g_win_texture_id);
+    }
+    if (num_balls == 2){
+        draw_object(g_ball2_matrix, g_ball2_texture_id);
+
+    }
+    if (num_balls == 3){
+        draw_object(g_ball2_matrix, g_ball2_texture_id);
+        draw_object(g_ball3_matrix, g_ball3_texture_id);
+
     }
 
 
